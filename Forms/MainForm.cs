@@ -535,7 +535,7 @@ public partial class MainForm : Form
         githubTooltip.SetToolTip(githubBtn, "前往 GitHub 官方仓库");
         githubBtn.Click += (_, _) =>
         {
-            try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://github.com/star620/TRAE-Automatic-sign-in") { UseShellExecute = true }); }
+            try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://github.com/star620/TRAE-Checkin") { UseShellExecute = true }); }
             catch { /* 打开浏览器失败时忽略 */ }
         };
 

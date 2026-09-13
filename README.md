@@ -1,4 +1,4 @@
-# Trae 每日签到助手（TRAE-Automatic-sign-in）
+# Trae 每日签到助手（TRAE-Checkin）
 
 > 作者：**星梦**
 

@@ -71,7 +71,7 @@ public class GitHubApiClient
 {
     private const string ClientId = "Ov23lix0Kb9ldJHrOpKv";
     private const string SourceOwner = "star620";
-    private const string SourceRepo = "TRAE-Automatic-sign-in";
+    private const string SourceRepo = "TRAE-Checkin";
     public const string SessionSecretName = "TRAE_SESSION";
     public const string DeviceIdSecretName = "TRAE_DEVICE_ID";
     public const string FeishuWebhookSecretName = "FEISHU_WEBHOOK";
@@ -247,7 +247,7 @@ public class GitHubApiClient
 
     /// <summary>PAT 对目标仓库写权限不足时的指引文案。</summary>
     public static string BuildPatScopeHint()
-        => "该 Token 对目标仓库没有写权限。请确认：1) Repository access 已包含 TRAE-Automatic-sign-in"
+        => "该 Token 对目标仓库没有写权限。请确认：1) Repository access 已包含 TRAE-Checkin"
            + "（若已 fork 还需包含你自己的 fork 仓库）；"
            + "2) Permissions 中 Actions / Contents / Pull requests / Secrets / Workflows 均为 Read and write，"
            + "Metadata 为只读（自动带出）。修改后需重新生成 Token。";

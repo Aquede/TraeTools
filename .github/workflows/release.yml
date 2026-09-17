@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      # 发布单文件自包含 exe：应用内更新器（UpdaterService）会下载名为 TraeTools.exe 的资产，
+      # 直接覆盖本地 exe 后重启，因此必须产出可独立运行的单文件程序
+      - name: Publish (self-contained single-file win-x64)
+        run: dotnet publish TraeTools.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
+
+      - name: Zip distribution
+        shell: powershell
+        run: |
+          Compress-Archive -Path publish\* -DestinationPath TraeTools-win-x64.zip -Force
+          Get-ChildItem -Path publish, TraeTools-win-x64.zip | Select-Object Name, Length
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "TraeTools ${{ github.ref_name }}"
+          body: |
+            TraeTools ${{ github.ref_name }}
+            - 单文件自包含 Windows x64 程序（无需额外安装 .NET 运行时）
+            - 应用内「检查更新」会下载本 Release 的 `TraeTools.exe` 自动替换升级
+          files: |
+            publish/TraeTools.exe
+            TraeTools-win-x64.zip
+          generate_release_notes: false

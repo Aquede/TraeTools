@@ -8,7 +8,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyTitle>TraeTools</AssemblyTitle>
     <Product>TraeTools</Product>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <NoWarn>CA1416;MSB3277</NoWarn>
   </PropertyGroup>
   <!-- 仅 LoginHostForm/WebViewLoginHost 用显式 using 引用 WinForms，全局 using 会造成与 Avalonia 命名冲突 -->

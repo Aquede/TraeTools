@@ -11,12 +11,12 @@ public static class AccountHelpers
     /// <summary>缺号则生成不与其它账号重复的 16 位数字设备号（风控要求，多账号共用会触发 9074）。</summary>
     public static void EnsureDeviceId(TraeAccount acc)
     {
-        if (!string.IsNullOrWhiteSpace(acc.DeviceId)) return;
-        var cfg = MainViewModel.AppConfig;
         var used = new System.Collections.Generic.HashSet<string>(
-            cfg?.Accounts.Where(a => a.Id != acc.Id).Select(a => a.DeviceId)
+            MainViewModel.AppConfig?.Accounts.Where(a => a.Id != acc.Id).Select(a => a.DeviceId)
                .Where(d => !string.IsNullOrWhiteSpace(d)) ?? Array.Empty<string>(),
             StringComparer.Ordinal);
+        // 已有且不与其它账号重复 → 保持不动（幂等）；为空或与别人相同（手工填错）→ 换发独立新号
+        if (!string.IsNullOrWhiteSpace(acc.DeviceId) && !used.Contains(acc.DeviceId)) return;
         string id;
         do { id = Random.Shared.NextInt64(1_000_000_000_000_000L, 10_000_000_000_000_000L).ToString(); }
         while (used.Contains(id));

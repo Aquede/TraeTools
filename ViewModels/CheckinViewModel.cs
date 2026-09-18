@@ -292,8 +292,11 @@ public partial class CheckinViewModel : ViewModelBase
         bool any = false;
         if (cfg == null || api == null) return (false, results);
 
+        int idx = 0;
         foreach (var acc in cfg.Accounts.Where(a => a.Enabled))
         {
+            // 账号间随机间隔 3~6 秒：避免同 IP 下连续 claim 被风控按时间窗聚合判定为「参与用户太多(9074)」
+            if (idx++ > 0) await Task.Delay(Random.Shared.Next(3000, 6000));
             var display = string.IsNullOrEmpty(acc.Name)
                 ? (acc.Id.Length > 6 ? acc.Id[..6] : acc.Id)
                 : acc.Name!;

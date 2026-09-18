@@ -158,8 +158,7 @@ public static class AccountHelpers
     internal static readonly object HistoryIoLock = new();
 
     /// <summary>历史文件目录的唯一真源（%APPDATA%\TraeCheckin）。</summary>
-    internal static string HistoryDir => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TraeCheckin");
+    internal static string HistoryDir => TraeTools.Services.DataPaths.HistoryDir;
 
     private static bool _legacyHistoryCleaned;
 

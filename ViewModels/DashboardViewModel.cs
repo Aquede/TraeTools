@@ -64,8 +64,7 @@ public partial class DashboardViewModel : ViewModelBase
     /// <summary>总积分历史文件（%APPDATA%\TraeCheckin\credits_total_&lt;accId&gt;.txt，逐账号独立）。</summary>
     private static string TotalHistoryPathFor(string accountId)
         => System.IO.Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "TraeCheckin", $"credits_total_{accountId}.txt");
+            TraeTools.Services.DataPaths.Root, $"credits_total_{accountId}.txt");
 
     /// <summary>读取某账号总积分历史（按日期升序；文件格式 yyyy-MM-dd,total）。</summary>
     private static List<(DateTime Date, double Total)> ReadTotalHistory(string accountId)
@@ -242,34 +241,9 @@ public partial class DashboardViewModel : ViewModelBase
                 return;
             }
         }
-        catch { /* 回退 mock */ }
+        catch { /* 加载失败保持空列表 */ }
 
-        // Mock 数据
-        Accounts.Add(new AccountInfo
-        {
-            Name = "主号@150",
-            Initial = "主",
-            Color = "#3B82F6",
-            Status = "当前 ✓",
-            StatusType = "ok",
-            IsCurrent = true
-        });
-        Accounts.Add(new AccountInfo
-        {
-            Name = "备用号@0",
-            Initial = "备",
-            Color = "#10B981",
-            Status = "已建档",
-            StatusType = "info"
-        });
-        Accounts.Add(new AccountInfo
-        {
-            Name = "测试号@0",
-            Initial = "测",
-            Color = "#F59E0B",
-            Status = "需重登",
-            StatusType = "warn"
-        });
+        // 无真实账号时不展示示例账号（示例账号无法操作，容易造成混乱）
     }
 
     /// <summary>为账号概览卡片异步加载头像（有 AvatarUrl 且未加载过才拉，内存缓存）。</summary>

@@ -167,16 +167,12 @@ public partial class CheckinViewModel : ViewModelBase
         catch { /* 失败保持空日历 */ }
     }
 
-    /// <summary>读取签到历史列表（优先真实 history 文件；无真实数据时用示例）。</summary>
+    /// <summary>读取签到历史列表（优先真实 history 文件；无真实数据时保持空列表）。</summary>
     private void LoadHistory()
     {
         Records.Clear();
         var all = ReadAllHistory().Where(r => r.Date != DateTime.MinValue).ToList();
-        if (all.Count == 0)
-        {
-            AddMockRecords();
-            return;
-        }
+        if (all.Count == 0) return;
         foreach (var (_, line) in all.Take(50))
         {
             if (!TryParseRecord(line, out var rec)) continue;
@@ -226,11 +222,6 @@ public partial class CheckinViewModel : ViewModelBase
             ? m.Groups[4].Value
             : "+" + m.Groups[4].Value;
         return true;
-    }
-
-    private void AddMockRecords()
-    {
-        Records.Add(new CheckinRecord { Date = DateTime.Today.ToString("yyyy-MM-dd") + " 08:00", Account = "（示例）", Type = "示例数据", Result = "+150" });
     }
 
     /// <summary>

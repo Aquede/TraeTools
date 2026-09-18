@@ -14,8 +14,7 @@ public static class UsageStore
     private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = false };
 
     private static string PathFor(string accountId) => System.IO.Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "TraeCheckin", $"usage_{accountId}.jsonl");
+        TraeTools.Services.DataPaths.UsageDir, $"usage_{accountId}.jsonl");
 
     /// <summary>读取某账号全部本地记录（按 UsageTime 倒序，SessionId 去重保留最新）。</summary>
     public static List<UsageSessionRecord> LoadAll(string accountId)

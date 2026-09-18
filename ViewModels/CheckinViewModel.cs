@@ -313,11 +313,10 @@ public partial class CheckinViewModel : ViewModelBase
             AccountHelpers.EnsureDeviceId(acc);
             AccountHelpers.CheckinLog(display, $"开始签到，DeviceId={acc.DeviceId}，Token={(string.IsNullOrEmpty(acc.Token) ? "无" : "有")}，IsMember={acc.IsMember}");
 
-            // 未登录：计入失败汇总并给出原因，且写入失败历史
+            // 未登录：计入失败汇总并给出原因（失败详情已由 checkin_log 记录）
             if (string.IsNullOrEmpty(acc.Token))
             {
                 AccountHelpers.CheckinLog(display, "跳过：未登录（Token 为空）");
-                TryAppendHistory(acc, 0, success: false, reason: "未登录");
                 results.Add((display, false, 0, "未登录"));
                 continue;
             }
@@ -335,7 +334,6 @@ public partial class CheckinViewModel : ViewModelBase
                 if (!valid)
                 {
                     AccountHelpers.CheckinLog(display, "Token 校验失败且 Session 换新失败，登录态彻底失效");
-                    TryAppendHistory(acc, 0, success: false, reason: "会话失效，请重新登录");
                     results.Add((display, false, 0, "会话失效，请重新登录"));
                     continue;
                 }
@@ -359,13 +357,11 @@ public partial class CheckinViewModel : ViewModelBase
 
                 var (g, reason) = await CheckinOneAccountAsync(acc);
                 if (g > 0) any = true;
-                if (g <= 0) TryAppendHistory(acc, 0, success: false, reason);   // 失败也留痕，原因可见
                 results.Add((display, g > 0, g, reason));
             }
             catch (Exception ex)
             {
                 AccountHelpers.CheckinLog(display, $"签到异常：{ex.Message}");
-                TryAppendHistory(acc, 0, success: false, reason: "网络或接口异常");
                 results.Add((display, false, 0, "网络或接口异常")); // 单账号失败继续下一个
             }
         }
@@ -441,8 +437,8 @@ public partial class CheckinViewModel : ViewModelBase
     private static DateTime _lastAutoCheckDate = DateTime.MinValue;
 
     /// <summary>把签到结果写入本地历史文件（统一走 AccountHelpers，格式 date | name | type | 结果）。</summary>
-    private void TryAppendHistory(TraeCheckin.TraeAccount acc, double gained, bool success = true, string? reason = null)
-        => AccountHelpers.AppendHistory(acc, gained, success, reason);
+    private void TryAppendHistory(TraeCheckin.TraeAccount acc, double gained)
+        => AccountHelpers.AppendHistory(acc, gained);
 
     /// <summary>账号切换联动：按新激活账号刷新会员/奖励/日历/记录。</summary>
     public void Reload()

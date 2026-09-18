@@ -113,6 +113,22 @@ public partial class MainViewModel : ViewModelBase
 
         CurrentPage = _dashboard;
         CurrentPageKey = "dashboard";
+
+        // 启动日志：记录账号概况，便于排查问题
+        try
+        {
+            if (AppConfig != null)
+            {
+                var accs = AppConfig.Accounts;
+                AccountHelpers.AppLog("account", "", $"===== 程序启动，共 {accs.Count} 个账号 =====");
+                foreach (var a in accs)
+                {
+                    var n = string.IsNullOrEmpty(a.Name) ? (a.Id.Length > 6 ? a.Id[..6] : a.Id) : a.Name!;
+                    AccountHelpers.AppLog("account", n, $"DeviceId={a.DeviceId}，Token={(string.IsNullOrEmpty(a.Token) ? "无" : $"有({a.Token!.Length})")}，Enabled={a.Enabled}，LastCheckin={a.LastCheckinDate?.ToString("MM-dd HH:mm") ?? "无"}");
+                }
+            }
+        }
+        catch { /* 启动日志失败不影响 */ }
     }
 
     public bool IsDashboardActive => CurrentPageKey == "dashboard";
@@ -174,8 +190,14 @@ public partial class MainViewModel : ViewModelBase
             var acc = cfg.Accounts.FirstOrDefault(a => a.Id == cfg.ActiveAccountId)
                       ?? cfg.Accounts.FirstOrDefault();
             if (acc == null || string.IsNullOrEmpty(acc.Token)) return false;
+            var name = string.IsNullOrEmpty(acc.Name) ? (acc.Id.Length > 6 ? acc.Id[..6] : acc.Id) : acc.Name!;
+            AccountHelpers.CheckinLog(name, $"[托盘快签] 开始签到，DeviceId={acc.DeviceId}");
             var result = await api.ClaimAsync(acc.Token, acc.DeviceId);
-            if (result == null || result.code != 0) return false;
+            if (result == null || result.code != 0)
+            {
+                AccountHelpers.CheckinLog(name, $"[托盘快签] Claim 失败：code={result?.code ?? -1}, message={result?.message ?? "null"}");
+                return false;
+            }
             acc.LastCheckinDate = DateTime.Now;
             cfg.LastCheckinDate = DateTime.Now;
             try
@@ -184,6 +206,7 @@ public partial class MainViewModel : ViewModelBase
                 var after = await api.GetStatusAsync(acc.Token, acc.DeviceId);
                 double gained = TraeCheckin.CheckinEvaluator.ResolveGainedCredits(after ?? result, acc.IsMember);
                 AccountHelpers.AppendHistory(acc, gained);
+                AccountHelpers.CheckinLog(name, $"[托盘快签] 签到成功，获得 {gained} 积分");
             }
             catch { /* 历史写入失败不影响 */ }
             try

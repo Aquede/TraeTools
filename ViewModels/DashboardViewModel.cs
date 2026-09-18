@@ -468,7 +468,10 @@ public partial class DashboardViewModel : ViewModelBase
                 BuildChartFromHistory(acc.Id);
             }
         }
-        catch { /* 失败保留旧值 */ }
+        catch (Exception ex)
+        {
+            AccountHelpers.CheckinLog("?", $"[仪表盘刷新] 异常：{ex.Message}");
+        }
     }
 
     /// <summary>重读当前激活账号并刷新展示（账号切换联动用）。</summary>
@@ -523,6 +526,8 @@ public partial class DashboardViewModel : ViewModelBase
                 return;
             }
 
+            var name = string.IsNullOrEmpty(acc.Name) ? (acc.Id.Length > 6 ? acc.Id[..6] : acc.Id) : acc.Name!;
+            AccountHelpers.CheckinLog(name, $"[仪表盘快签] 开始签到，DeviceId={acc.DeviceId}");
             var result = await api.ClaimAsync(acc.Token, acc.DeviceId);
             if (result != null && result.code == 0)
             {
@@ -537,6 +542,7 @@ public partial class DashboardViewModel : ViewModelBase
                     var after = await api.GetStatusAsync(acc.Token, acc.DeviceId);
                     double gained = TraeCheckin.CheckinEvaluator.ResolveGainedCredits(after ?? result, acc.IsMember);
                     AccountHelpers.AppendHistory(acc, gained);
+                    AccountHelpers.CheckinLog(name, $"[仪表盘快签] 签到成功，获得 {gained} 积分");
                 }
                 catch { /* 历史写入失败不影响 */ }
                 // 刷新积分
@@ -547,6 +553,10 @@ public partial class DashboardViewModel : ViewModelBase
                     cfg.LastRemaining = credits;
                 }
                 try { cfg.Save(); } catch { /* 忽略 */ }
+            }
+            else
+            {
+                AccountHelpers.CheckinLog(name, $"[仪表盘快签] Claim 失败：code={result?.code ?? -1}, message={result?.message ?? "null"}");
             }
         }
         catch

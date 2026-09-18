@@ -42,7 +42,8 @@ public static class DataPaths
             var oldCheckin = Path.Combine(appData, "TraeCheckin");
             if (Directory.Exists(oldCheckin))
             {
-                MoveFile(Path.Combine(oldCheckin, "config.json"), ConfigPath);
+                // 配置：目标不存在则搬，已存在则按账号 Id 合并（避免因“跳过”把旧账号登录态遗留在旧文件 —— 用户会因此要重新登录）
+                MergeOrMoveConfigFile(Path.Combine(oldCheckin, "config.json"), ConfigPath);
                 foreach (var f in Directory.GetFiles(oldCheckin, "history_*.txt"))
                     MoveFile(f, Path.Combine(HistoryDir, Path.GetFileName(f)));
                 foreach (var f in Directory.GetFiles(oldCheckin, "checkin_log_*.txt"))
@@ -76,5 +77,45 @@ public static class DataPaths
             File.Move(src, dst);
         }
         catch { /* 单文件失败跳过 */ }
+    }
+
+    /// <summary>
+    /// 旧 config.json 迁移：目标不存在则直接搬；目标已存在则按账号 Id 执行并集合并
+    /// （旧号带登录态但目标缺该号 → 补进目标），保证老账号不因「跳过」而丢失（需重新登录）。
+    /// </summary>
+    private static void MergeOrMoveConfigFile(string src, string dst)
+    {
+        try
+        {
+            if (!File.Exists(src)) return;
+            var dir = Path.GetDirectoryName(dst);
+            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+            if (!File.Exists(dst))
+            {
+                File.Move(src, dst);
+                return;
+            }
+            var srcNode = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(src)) as System.Text.Json.Nodes.JsonObject;
+            var dstNode = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(dst)) as System.Text.Json.Nodes.JsonObject;
+            if (srcNode?["Accounts"] is System.Text.Json.Nodes.JsonArray srcAcc
+                && dstNode?["Accounts"] is System.Text.Json.Nodes.JsonArray dstAcc)
+            {
+                var ids = dstAcc
+                    .Select(a => (string?)a?["Id"])
+                    .Where(id => !string.IsNullOrEmpty(id))
+                    .ToHashSet(StringComparer.Ordinal);
+                foreach (var acc in srcAcc)
+                {
+                    var id = (string?)acc?["Id"];
+                    if (id != null && !ids.Contains(id))
+                    {
+                        dstAcc.Add(acc?.DeepClone());
+                        ids.Add(id);
+                    }
+                }
+                File.WriteAllText(dst, dstNode.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+            }
+        }
+        catch { /* 合并失败保留原状 */ }
     }
 }

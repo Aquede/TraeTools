@@ -61,11 +61,9 @@ public partial class DashboardViewModel : ViewModelBase
     [ObservableProperty]
     private int _chartYMin = 0;
 
-    /// <summary>总积分历史文件（%APPDATA%\TraeCheckin\credits_total_&lt;accId&gt;.txt，逐账号独立）。</summary>
+    /// <summary>总积分历史文件（%APPDATA%\TraeCheckin\data\credits_total_&lt;accId&gt;.txt，逐账号独立）。</summary>
     private static string TotalHistoryPathFor(string accountId)
-        => System.IO.Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "TraeCheckin", $"credits_total_{accountId}.txt");
+        => System.IO.Path.Combine(AccountHelpers.DataDir, $"credits_total_{accountId}.txt");
 
     /// <summary>读取某账号总积分历史（按日期升序；文件格式 yyyy-MM-dd,total）。</summary>
     private static List<(DateTime Date, double Total)> ReadTotalHistory(string accountId)
@@ -86,10 +84,17 @@ public partial class DashboardViewModel : ViewModelBase
         return list.OrderBy(x => x.Date).ToList();
     }
 
-    /// <summary>当天无记录时追加当前总积分（对齐源：每天记录一次当前总积分）。</summary>
+    /// <summary>当天无记录时追加当前总积分（同时写入 SQLite 与旧版文本文件）。</summary>
     private static void AppendTotalToday(TraeCheckin.TraeAccount acc, double total)
     {
         if (total < 0) return;
+        // 写入 SQLite（ON CONFLICT 自动去重）
+        try
+        {
+            MainViewModel.CheckinDb?.InsertSnapshot(acc.Id, total);
+        }
+        catch { /* 数据库写入失败不影响 */ }
+        // 同时写入旧版文本文件（保持兼容）
         try
         {
             var history = ReadTotalHistory(acc.Id);
@@ -104,7 +109,24 @@ public partial class DashboardViewModel : ViewModelBase
     /// <summary>从该账号真实总积分历史重建曲线（近 N 天），并更新 Y 轴刻度。</summary>
     private void BuildChartFromHistory(string accountId)
     {
-        var history = ReadTotalHistory(accountId);
+        // 优先从 SQLite 读取趋势数据
+        List<(DateTime Date, double Remaining)> dbTrend = new();
+        try
+        {
+            dbTrend = MainViewModel.CheckinDb?.GetSnapshotTrend(accountId, 14) ?? new();
+        }
+        catch { /* 数据库读取失败回退到文本文件 */ }
+
+        List<(DateTime Date, double Total)> history;
+        if (dbTrend.Count > 0)
+        {
+            history = dbTrend.Select(t => (t.Date, t.Remaining)).ToList();
+        }
+        else
+        {
+            history = ReadTotalHistory(accountId);
+        }
+
         if (history.Count == 0)
         {
             // 无历史：退化为单日当前积分 mock（避免空图）

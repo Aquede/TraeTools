@@ -32,6 +32,7 @@ public partial class MainViewModel : ViewModelBase
     public static SettingsStore? SwitchSettings;
     public static VaultService? Vault;
     public static GitHubApiClient? GitHubApi;
+    public static CheckinDatabase? CheckinDb;
 
     public MainViewModel()
     {
@@ -94,6 +95,29 @@ public partial class MainViewModel : ViewModelBase
         catch
         {
             GitHubApi = null;
+        }
+
+        try
+        {
+            CheckinDb = new CheckinDatabase();
+            // 首次启动时从旧版文本文件迁移数据（兼容旧目录和新目录）
+            var baseDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TraeCheckin");
+            var dataDir = Path.Combine(baseDir, "data");
+            // 旧文件可能在 baseDir（旧版）或 dataDir（新版），两边都扫
+            int migrated = 0;
+            foreach (var dir in new[] { baseDir, dataDir })
+            {
+                if (Directory.Exists(dir))
+                    migrated += CheckinDb.MigrateFromHistoryFiles(dir)
+                              + CheckinDb.MigrateFromSnapshotFiles(dir);
+            }
+            if (migrated > 0)
+                AccountHelpers.AppLog("account", "", $"从旧版文本文件迁移了 {migrated} 条记录到数据库");
+        }
+        catch
+        {
+            CheckinDb = null;
         }
 
         Instance = this;

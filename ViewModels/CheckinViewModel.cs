@@ -120,10 +120,23 @@ public partial class CheckinViewModel : ViewModelBase
                   ?? cfg?.Accounts.FirstOrDefault();
         if (acc?.LastCheckinDate is DateTime lc) signed.Add(lc.Date);
         if (cfg?.LastCheckinDate is DateTime clc) signed.Add(clc.Date);
+
+        // 优先从 SQLite 读取
+        try
+        {
+            var dbDates = MainViewModel.CheckinDb?.GetSignedDates();
+            if (dbDates != null && dbDates.Count > 0)
+            {
+                foreach (var d in dbDates) signed.Add(d);
+                return signed;
+            }
+        }
+        catch { /* 数据库读取失败回退到文本文件 */ }
+
         foreach (var (date, line) in ReadAllHistory())
         {
             if (date == DateTime.MinValue) continue;
-            if (TryParseRecord(line, out var rec) && rec.Type == "签到失败") continue;   // 失败记录不算已签
+            if (TryParseRecord(line, out var rec) && rec.Type == "签到失败") continue;
             signed.Add(date);
         }
         return signed;
@@ -167,10 +180,32 @@ public partial class CheckinViewModel : ViewModelBase
         catch { /* 失败保持空日历 */ }
     }
 
-    /// <summary>读取签到历史列表（优先真实 history 文件；无真实数据时用示例）。</summary>
+    /// <summary>读取签到历史列表（优先 SQLite，回退文本文件；无数据时用示例）。</summary>
     private void LoadHistory()
     {
         Records.Clear();
+
+        // 优先从 SQLite 读取
+        try
+        {
+            var dbRecords = MainViewModel.CheckinDb?.GetRecords(limit: 50);
+            if (dbRecords != null && dbRecords.Count > 0)
+            {
+                foreach (var r in dbRecords)
+                {
+                    Records.Add(new CheckinRecord
+                    {
+                        Date = $"{r.Date} {r.Time}",
+                        Account = r.AccountName,
+                        Type = "每日签到",
+                        Result = $"+{(int)r.Credits}",
+                    });
+                }
+                return;
+            }
+        }
+        catch { /* 数据库读取失败回退到文本文件 */ }
+
         var all = ReadAllHistory().Where(r => r.Date != DateTime.MinValue).ToList();
         if (all.Count == 0)
         {

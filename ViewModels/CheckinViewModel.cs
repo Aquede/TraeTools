@@ -120,8 +120,12 @@ public partial class CheckinViewModel : ViewModelBase
                   ?? cfg?.Accounts.FirstOrDefault();
         if (acc?.LastCheckinDate is DateTime lc) signed.Add(lc.Date);
         if (cfg?.LastCheckinDate is DateTime clc) signed.Add(clc.Date);
-        foreach (var (date, _) in ReadAllHistory())
-            if (date != DateTime.MinValue) signed.Add(date);
+        foreach (var (date, line) in ReadAllHistory())
+        {
+            if (date == DateTime.MinValue) continue;
+            if (TryParseRecord(line, out var rec) && rec.Type == "签到失败") continue;   // 失败记录不算已签
+            signed.Add(date);
+        }
         return signed;
     }
 
@@ -297,9 +301,10 @@ public partial class CheckinViewModel : ViewModelBase
             // 一律先补发设备号（风控要求；含已签提前，避免用空/旧设备号去查状态）
             AccountHelpers.EnsureDeviceId(acc);
 
-            // 未登录：计入失败汇总并给出原因
+            // 未登录：计入失败汇总并给出原因，且写入失败历史
             if (string.IsNullOrEmpty(acc.Token))
             {
+                TryAppendHistory(acc, 0, success: false, reason: "未登录");
                 results.Add((display, false, 0, "未登录"));
                 continue;
             }
@@ -315,6 +320,7 @@ public partial class CheckinViewModel : ViewModelBase
                 bool valid = await AccountHelpers.EnsureValidTokenAsync(acc);
                 if (!valid)
                 {
+                    TryAppendHistory(acc, 0, success: false, reason: "会话失效，请重新登录");
                     results.Add((display, false, 0, "会话失效，请重新登录"));   // 登录态失效
                     continue;
                 }
@@ -332,9 +338,14 @@ public partial class CheckinViewModel : ViewModelBase
 
                 var (g, reason) = await CheckinOneAccountAsync(acc);
                 if (g > 0) any = true;
+                if (g <= 0) TryAppendHistory(acc, 0, success: false, reason);   // 失败也留痕，原因可见
                 results.Add((display, g > 0, g, reason));
             }
-            catch { results.Add((display, false, 0, "网络或接口异常")); } // 单账号失败继续下一个
+            catch
+            {
+                TryAppendHistory(acc, 0, success: false, reason: "网络或接口异常");
+                results.Add((display, false, 0, "网络或接口异常")); // 单账号失败继续下一个
+            }
         }
         return (any, results);
     }
@@ -391,9 +402,9 @@ public partial class CheckinViewModel : ViewModelBase
     /// <summary>自动签到上次已触发日期（每日仅触发一次）。</summary>
     private static DateTime _lastAutoCheckDate = DateTime.MinValue;
 
-    /// <summary>把签到结果写入本地历史文件（统一走 AccountHelpers，格式 date | name | type | +gained）。</summary>
-    private void TryAppendHistory(TraeCheckin.TraeAccount acc, double gained)
-        => AccountHelpers.AppendHistory(acc, gained);
+    /// <summary>把签到结果写入本地历史文件（统一走 AccountHelpers，格式 date | name | type | 结果）。</summary>
+    private void TryAppendHistory(TraeCheckin.TraeAccount acc, double gained, bool success = true, string? reason = null)
+        => AccountHelpers.AppendHistory(acc, gained, success, reason);
 
     /// <summary>账号切换联动：按新激活账号刷新会员/奖励/日历/记录。</summary>
     public void Reload()

@@ -171,10 +171,11 @@ public static class AccountHelpers
     }
 
     /// <summary>
-    /// 追加一条签到历史（与签到页共用同一管道格式：date | name | type | +gained）。
+    /// 追加一条签到历史（与签到页共用同一管道格式：date | name | type | 结果）。
     /// 供仪表盘「立即签到」、托盘「立即签到」等所有签到入口共用，避免部分入口不记历史。
+    /// 失败时也写入记录（success=false + reason），让用户能从记录列表看到失败原因。
     /// </summary>
-    public static void AppendHistory(TraeCheckin.TraeAccount acc, double gained)
+    public static void AppendHistory(TraeCheckin.TraeAccount acc, double gained, bool success = true, string? reason = null)
     {
         try
         {
@@ -183,7 +184,11 @@ public static class AccountHelpers
                 Directory.CreateDirectory(HistoryDir);
                 var historyFile = Path.Combine(HistoryDir, $"history_{DateTime.Now:yyyyMM}.txt");
                 var name = string.IsNullOrEmpty(acc.Name) ? (acc.Id.Length > 6 ? acc.Id[..6] : acc.Id) : acc.Name;
-                var line = $"{DateTime.Now:yyyy-MM-dd HH:mm} | {name} | 每日签到 | +{(int)gained}";
+                string line;
+                if (success)
+                    line = $"{DateTime.Now:yyyy-MM-dd HH:mm} | {name} | 每日签到 | +{(int)gained}";
+                else
+                    line = $"{DateTime.Now:yyyy-MM-dd HH:mm} | {name} | 签到失败 | {(string.IsNullOrEmpty(reason) ? "未知原因" : reason)}";
                 File.AppendAllText(historyFile, line + Environment.NewLine);
             }
         }
